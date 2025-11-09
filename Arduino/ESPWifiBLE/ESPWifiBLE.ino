@@ -6,7 +6,6 @@
  */
 
 #include "BLEDevice.h"
-//#include "BLEScan.h"
 #include "WiFi.h"
 #include <HTTPClient.h>
 
@@ -22,7 +21,6 @@ static BLEUUID charUUID("6E400003-B5A3-F393-E0A9-E50E24DCCA9E");
 
 static boolean doConnect = false;
 static boolean connected = false;
-static boolean doScan = false;
 static BLERemoteCharacteristic *pRemoteCharacteristic;
 static BLEAdvertisedDevice *myDevice;
 
@@ -56,7 +54,7 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
       Serial.println(strlen(strToComp));
       if (strncmp(token, strToComp, 5) == 0) {
         Serial.println("MATCH");
-        http.begin(baz); 
+        http.begin(url);
         http.POST((uint8_t*) token, strlen(token));
         http.end();
       }
@@ -139,7 +137,6 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
       BLEDevice::getScan()->stop();
       myDevice = new BLEAdvertisedDevice(advertisedDevice);
       doConnect = true;
-      doScan = true;
 
     }  // Found our server
   }  // onResult
@@ -192,16 +189,13 @@ void loop() {
     if (connectToServer()) {
       Serial.println("We are now connected to the BLE Server.");
     } else {
-      Serial.println("We have failed to connect to the server; there is nothing more we will do.");
+      Serial.println("We have failed to connect to the server. Scanning will resume.");
+      delay(5000);
     }
     doConnect = false;
   }
 
-  // If we are connected to a peer BLE Server, update the characteristic each time we are reached
-  // with the current time since boot.
-  if (connected) {
-      
-  } else if (doScan) {
+  if (!connected) {
     BLEDevice::getScan()->start(0);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
   }
 
