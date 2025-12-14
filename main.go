@@ -92,8 +92,9 @@ func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, fmt.Sprintf("Puissance estimée sur les 5 dernières minutes: %.0f W\n", power5Minute))
 		lastTimestampInt := getLastTimestamp(h.df)
 		lastTimestampUTC := time.Unix(lastTimestampInt, 0).UTC()
+		FRLocation, _ := time.LoadLocation("Europe/Paris")
 		io.WriteString(w, "\n")
-		io.WriteString(w, fmt.Sprintf("Dernière mise à jour: %s\n", lastTimestampUTC))
+		io.WriteString(w, fmt.Sprintf("Dernière mise à jour: %s\n", lastTimestampUTC.In(FRLocation)))
 
 	case http.MethodPost:
 		body, err := io.ReadAll(r.Body)
