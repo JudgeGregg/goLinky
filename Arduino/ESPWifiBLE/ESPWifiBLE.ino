@@ -9,7 +9,7 @@
 #include "WiFi.h"
 #include <HTTPClient.h>
 
-const char *ssid = "foo";          // Change this to your WiFi SSID
+const char *ssid = "foo";
 const char *password = "bar";
 const char *url = "baz";
 HTTPClient http;
@@ -23,6 +23,8 @@ static boolean doConnect = false;
 static boolean connected = false;
 static BLERemoteCharacteristic *pRemoteCharacteristic;
 static BLEAdvertisedDevice *myDevice;
+
+char previousLine[20] = {0};
 
 static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, uint8_t *pData, size_t length, bool isNotify) {
   Serial.print("Notify callback for characteristic ");
@@ -48,17 +50,24 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
       Serial.println(token);
       Serial.println(strlen(token));
       
-      const char strToComp[] = "Index";
+      const char strToComp[] = "BASE";
       Serial.println("About to compare");
       Serial.println(strlen(token));
       Serial.println(strlen(strToComp));
-      if (strncmp(token, strToComp, 5) == 0) {
+      Serial.println(previousLine);
+      if (strncmp(token, strToComp, 4) == 0) {
+        if (strcmp(token, previousLine) != 0) { 
+        strcpy(previousLine, token);
         Serial.println("MATCH");
         http.begin(url);
         http.POST((uint8_t*) token, strlen(token));
         http.end();
+        } else {
+          Serial.println("IDENTICAL");
+          Serial.println(token);
+          Serial.println(previousLine);
+        }
       }
-
       token = strtok(NULL, delimiter);
   }
 }
@@ -67,8 +76,9 @@ class MyClientCallback : public BLEClientCallbacks {
   void onConnect(BLEClient *pclient) {}
 
   void onDisconnect(BLEClient *pclient) {
-    connected = false;
     Serial.println("onDisconnect");
+    connected = false;
+    ESP.restart();
   }
 };
 
@@ -143,8 +153,10 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 };  // MyAdvertisedDeviceCallbacks
 
 void setup() {
+  delay(2000);
   Serial.begin(115200);
   Serial.println("Starting Arduino BLE Client application...");
+
   BLEDevice::init("");
 
   // Retrieve a Scanner and set the callback we want to use to be informed when we

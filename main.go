@@ -44,11 +44,11 @@ func getHistory(df *os.File, atTimestamp int64) float64 {
 	}
 	lastRecord := records[len(records)-1]
 	if atTimestampRecord != nil {
-		aDayAgoIndexStr := strings.Split(atTimestampRecord[1], " ")[1]
-		fmt.Println(aDayAgoIndexStr)
-		atTimestampIndexInt, _ = strconv.ParseInt(aDayAgoIndexStr, 10, 64)
+		atTimestampIndexStr := atTimestampRecord[1]
+		fmt.Println(atTimestampIndexStr)
+		atTimestampIndexInt, _ = strconv.ParseInt(atTimestampIndexStr, 10, 64)
 		fmt.Println("atTimestampIndexInt", atTimestampIndexInt)
-		lastIndexStr := strings.Split(lastRecord[1], " ")[1]
+		lastIndexStr := lastRecord[1]
 		fmt.Println(lastIndexStr)
 		lastIndexInt, _ := strconv.ParseInt(lastIndexStr, 10, 64)
 		fmt.Println("lastIndexInt", lastIndexInt)
@@ -102,7 +102,8 @@ func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Printf("body: %s\n", body)
 		now := time.Now().Unix()
-		content := fmt.Sprint(now) + "," + string(body)
+		index := bytes.Split(body, []byte(" "))[1]
+		content := fmt.Sprint(now) + "," + string(index)
 		h.df.WriteString(content)
 		h.df.WriteString(string('\n'))
 		h.df.Sync()

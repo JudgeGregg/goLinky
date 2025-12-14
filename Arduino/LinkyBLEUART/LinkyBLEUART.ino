@@ -21,16 +21,52 @@ BLEDis  bledis;  // device information
 BLEUart bleuart; // uart over ble
 BLEBas  blebas;  // battery
 
-String papp, index_;
-bool gotpapp, gotindex = false;
-int indexes[150];
-unsigned long times[150];
-int iter = 0;
-int indexInt;
-const unsigned long millisinhour = 3600000;
+//String papp, index_;
+//bool gotpapp, gotindex = false;
+//int indexes[150];
+//unsigned long times[150];
+//int iter = 0;
+//int indexInt;
+//const unsigned long millisinhour = 3600000;
+
+String prev_line = "";
+
+uint8_t num_to_bits[16] = { 0, 1, 1, 2, 1, 2, 2, 3,
+                        1, 2, 2, 3, 2, 3, 3, 4 };
+
+/* Recursively get nibble of a given number 
+  and map them in the array  */
+uint8_t countSetBits(uint8_t num)
+{
+    uint8_t nibble = 0;
+    if (0 == num)
+        return num_to_bits[0];
+
+    // Find last nibble
+    nibble = num & 0xf;
+
+    // Use pre-stored values to find count
+    // in last nibble plus recursively add
+    // remaining nibbles.
+    return num_to_bits[nibble] + countSetBits(num >> 4);
+}
+
+bool checkParity(uint8_t setbits, uint8_t parity)
+{
+      uint8_t even;
+      even = (setbits % 2) == 0;
+      if (even && (parity == 0)) {
+        return true;
+      }
+      if (!even && (parity == 1)) {
+        return true;
+      }
+      return false;
+}
 
 void setup()
 {
+  delay(5000);
   Serial1.begin(1200);
   Serial.begin(115200);
 
@@ -110,54 +146,33 @@ void startAdv(void)
 
 void loop()
 {
-
+  
   // Forward data from HW Serial to BLEUART
   while (Serial1.available())
   {
-    uint8_t buf[64];
+    uint8_t buf[64] = {0};
+    uint8_t parity; //odd parity
+    uint8_t setbits;
+    bool checkP;
     int count = Serial1.readBytesUntil('\n', buf, sizeof(buf));
     for (int i = 0; i < count; i++ ) {
+      //Serial.write(buf[i]);
+      parity = (buf[i] & 0b10000000) >> 7;
+      setbits = countSetBits(buf[i] & 0b01111111); //don't count parity bit
+      checkP = checkParity(setbits, parity);
+      if (!checkP) {
+        bleuart.print("INVALID PARITY");
+        Serial.println("INVALID PARITY");
+      }
       buf[i] = buf[i] & 127;
     }
+    //Serial.println("DONE");
     String line = String((char *)buf);
-    //Serial.print(line);
-    if (line.startsWith("PAPP")) {
-      papp = line.substring(5, 10);
-      gotpapp = true;
+    if ((line.startsWith("BASE")) && (line != prev_line)) {
+        prev_line = line;
+        bleuart.print(line);
     }
-    if (line.startsWith("BASE")) {
-      index_ = line.substring(5, 14);
-      indexInt = index_.toInt();
-      indexes[iter] = indexInt;
-      times[iter] = millis();
-      gotindex = true; 
-    }
-    if (gotpapp && gotindex) {
-      gotpapp = false;
-      gotindex = false;
-      if (iter % 5 == 0) {
-        //Serial.println(iter);
-        //Serial.print("Puissance: " + papp + " W\nIndex: " + index_ + " kWh");
-        int previousIndexInt = iter+1;
-        if (previousIndexInt == 150) {
-          previousIndexInt = 0;
-        }
-        int delta = indexes[iter] - indexes[previousIndexInt];
-        unsigned long delta_millis = times[iter] - times[previousIndexInt];
-        // it takes roughly 240 secs to get 150 values, so we extrapolate the delta
-        int estimatedPower = delta * 15;
-        //Serial.println(indexes[iter]);
-        //Serial.println(indexes[previousIndexInt]);
-        bleuart.print("Puissance: " + papp + " VA\nIndex: " + index_ + " Wh\nDelta: " + delta + "Wh\nPuiss. Estim. (4 min): " + estimatedPower + "W\n");
-        bleuart.print("Delta Millis: " + String(delta_millis) + " ms\n");
-        bleuart.print("Puiss. Estim.: " + String(delta * (millisinhour / delta_millis)) + " W");
-        //Serial.print("Puissance: " + papp + " VA\nIndex: " + index_ + " Wh\nDelta: " + delta + "Wh\n");
-      }
-      iter++;
-      if (iter == 150) {
-        iter = 0;
-      }
-    }
+
   }
 
 }
